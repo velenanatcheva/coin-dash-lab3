@@ -6,11 +6,11 @@ class CoinDash extends Phaser.Scene {
     const c = COIN_DASH;
     this.score = 0;
     this.finished = false;
+    this.panel = this.message = null;
     this.deadline = this.time.now + c.roundSeconds * 1000;
     this.physics.world.setBounds(0, 44, c.width, c.height - 44);
-    this.add.grid(c.width / 2, c.height / 2, c.width, c.height, 40, 40,
-      c.colors.background, 1, 0x24334b, 0.45);
-    this.hud = this.add.text(18, 12, '', { font: '18px monospace', color: '#ffffff' });
+    this.grid = this.add.grid(c.width / 2, c.height / 2, c.width, c.height, 40, 40);
+    this.hud = this.add.text(18, 12, '', { font: '18px monospace' });
     this.player = this.add.rectangle(c.width / 2, c.height / 2, 24, 24, c.colors.player);
     this.physics.add.existing(this.player);
     this.player.body.setCollideWorldBounds(true);
@@ -35,6 +35,22 @@ class CoinDash extends Phaser.Scene {
     this.cursors = this.input.keyboard.createCursorKeys();
     this.keys = this.input.keyboard.addKeys('W,A,S,D,R');
     this.input.keyboard.on('keydown-R', () => this.scene.restart());
+    // The theme lives on the game registry, so it survives a restart.
+    this.input.keyboard.on('keydown-T', () => { this.registry.toggle('dark'); this.applyTheme(); });
+    this.applyTheme();
+  }
+
+  applyTheme() {
+    const dark = Boolean(this.registry.get('dark'));
+    const p = dark ? COIN_DASH.darkColors : COIN_DASH.colors;
+    this.cameras.main.setBackgroundColor(p.background);
+    this.grid.setFillStyle(p.background, 1).setOutlineStyle(p.grid, p.gridAlpha);
+    this.hud.setColor(p.text);
+    this.player.setFillStyle(p.player);
+    this.coin.setFillStyle(p.coin);
+    this.drones.getChildren().forEach(drone => drone.setFillStyle(p.drone));
+    if (this.panel) { this.panel.setFillStyle(p.panel, 0.95); this.message.setColor(p.text); }
+    document.body.classList.toggle('dark', dark);
   }
 
   placeCoin() {
@@ -67,11 +83,12 @@ class CoinDash extends Phaser.Scene {
     this.finished = true;
     this.physics.pause();
     const c = COIN_DASH;
-    this.add.rectangle(c.width / 2, c.height / 2, 460, 150, 0x0a1120, 0.95);
-    this.add.text(c.width / 2, c.height / 2,
+    this.panel = this.add.rectangle(c.width / 2, c.height / 2, 460, 150);
+    this.message = this.add.text(c.width / 2, c.height / 2,
       `${reason}\n${this.score} coins collected\nPress R to try again`,
-      { font: '24px monospace', color: '#ffffff', align: 'center', lineSpacing: 12 }
+      { font: '24px monospace', align: 'center', lineSpacing: 12 }
     ).setOrigin(0.5);
+    this.applyTheme();
   }
 }
 window.coinDashGame = new Phaser.Game({
