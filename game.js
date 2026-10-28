@@ -6,6 +6,7 @@ class CoinDash extends Phaser.Scene {
     const c = COIN_DASH;
     this.score = 0;
     this.finished = false;
+    this.paused = false;
     this.deadline = this.time.now + c.roundSeconds * 1000;
     this.physics.world.setBounds(0, 44, c.width, c.height - 44);
     this.add.grid(c.width / 2, c.height / 2, c.width, c.height, 40, 40,
@@ -27,14 +28,39 @@ class CoinDash extends Phaser.Scene {
       drone.body.setVelocity(Math.cos(angle) * c.droneSpeed, Math.sin(angle) * c.droneSpeed);
     }
     this.physics.add.overlap(this.player, this.coin, () => {
-      if (this.finished) return;
+      if (this.finished || this.paused) return;
       this.score++;
       this.placeCoin();
     });
-    this.physics.add.overlap(this.player, this.drones, () => this.finish('A drone caught you!'));
+    this.physics.add.overlap(this.player, this.drones, () => {
+      if (!this.paused) this.finish('A drone caught you!');
+    });
     this.cursors = this.input.keyboard.createCursorKeys();
     this.keys = this.input.keyboard.addKeys('W,A,S,D,R');
     this.input.keyboard.on('keydown-R', () => this.scene.restart());
+    this.input.keyboard.on('keydown-P', () => this.togglePause());
+  }
+
+  togglePause() {
+    if (this.finished) return;
+    const c = COIN_DASH;
+    this.paused = !this.paused;
+    if (this.paused) {
+      // The deadline is based on this.time.now, so keep the remaining time instead.
+      this.remaining = this.deadline - this.time.now;
+      this.player.body.setVelocity(0, 0);
+      this.physics.pause();
+      this.pauseOverlay = this.add.container(0, 0, [
+        this.add.rectangle(c.width / 2, c.height / 2, 460, 110, 0x0a1120, 0.95),
+        this.add.text(c.width / 2, c.height / 2, 'Paused — press P to resume',
+          { font: '24px monospace', color: '#ffffff' }).setOrigin(0.5)
+      ]);
+    } else {
+      this.deadline = this.time.now + this.remaining;
+      this.input.keyboard.resetKeys();
+      this.physics.resume();
+      this.pauseOverlay.destroy();
+    }
   }
 
   placeCoin() {
@@ -50,7 +76,7 @@ class CoinDash extends Phaser.Scene {
   }
 
   update() {
-    if (this.finished) return;
+    if (this.finished || this.paused) return;
     const dx = Number(this.cursors.right.isDown || this.keys.D.isDown)
       - Number(this.cursors.left.isDown || this.keys.A.isDown);
     const dy = Number(this.cursors.down.isDown || this.keys.S.isDown)
